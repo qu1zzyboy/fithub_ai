@@ -1,0 +1,8 @@
+memory/coaches/*
+!memory/coaches/.gitkeep
+memory/athletes/*
+!memory/athletes/.gitkeep
+memory/system/candidates/*
+!memory/system/candidates/.gitkeep
+jobs/**
+!jobs/.gitkeep
