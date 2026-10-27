@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { Decision } from "./ports.ts";
+import { fileURLToPath } from "node:url";
+import type { CoachDecision } from "./ports.ts";
 import type { ParentState } from "./state.ts";
 
 export interface ModelEnv {
@@ -9,27 +10,14 @@ export interface ModelEnv {
   model: string;
 }
 
-const SYSTEM = `你只做主 agent 的意图分类。只返回一个 JSON 对象，不要 Markdown。
-
-intent 只能是：
-- unrelated：和运动无关
-- unclear：分不清是排课还是复盘
-- session：发这一次课，或补热身、进退阶、强度
-- premature-write：还没确认就要把框架或改法写入
-- api：其他运动问题，不排课也不复盘。needsAthlete 表示要不要读学员
-- confirm：确认当前待写入的框架或改法
-- revise：不确认，要改口
-- framework：往下排课。可带 athleteName，以及 strategy 里已经说清的字段
-- review：看已经练过的。range 是时间范围；report、chart、proposeChange 为布尔。只说看看时 proposeChange 必须是 false
-
-strategy.level 只能是：无训练史、<6个月、6个月-2年、2-5年、>5年。
-strategy.injuryConfirmed 只有教练明确确认伤病或确认无时才为 true。`;
+const SYSTEM = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../agents/parent/prompt.md"), "utf8");
 
 /** 用环境里的 Anthropic 兼容模型做分类。循环本身不依赖这次调用。 */
 export async function classifyWithModel(input: {
   utterance: string;
   state: ParentState;
-}, env: ModelEnv = readModelEnv()): Promise<Decision> {
+  memoryIndex?: string;
+}, env: ModelEnv = readModelEnv()): Promise<CoachDecision> {
   const response = await fetch(messagesUrl(env.baseUrl), {
     method: "POST",
     headers: {
@@ -44,7 +32,7 @@ export async function classifyWithModel(input: {
       messages: [
         {
           role: "user",
-          content: `当前状态：${JSON.stringify(publicState(input.state))}\n教练这句话：${input.utterance}`,
+          content: classifyUserText(input),
         },
       ],
     }),
@@ -57,14 +45,17 @@ export async function classifyWithModel(input: {
   return parseDecision(text);
 }
 
-export function parseDecision(text: string): Decision {
+export function parseDecision(text: string): CoachDecision {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) return { intent: "unclear" };
   try {
-    const parsed = JSON.parse(text.slice(start, end + 1)) as { intent?: string };
+    const parsed = JSON.parse(text.slice(start, end + 1)) as { intent?: string; reply?: unknown };
     if (!parsed.intent) return { intent: "unclear" };
-    return parsed as Decision;
+    const decision = parsed as CoachDecision;
+    if (typeof parsed.reply === "string") decision.reply = parsed.reply.trim();
+    else delete decision.reply;
+    return decision;
   } catch {
     return { intent: "unclear" };
   }
@@ -78,6 +69,15 @@ export function readModelEnv(startDirectory = process.cwd()): ModelEnv {
   const model = process.env.CLAUDE_MODEL || fromFile.CLAUDE_MODEL;
   if (!apiKey || !baseUrl || !model) throw new Error("缺少 ANTHROPIC_API_KEY、ANTHROPIC_BASE_URL 或 CLAUDE_MODEL");
   return { apiKey, baseUrl, model };
+}
+
+export function classifyUserText(input: {
+  utterance: string;
+  state: ParentState;
+  memoryIndex?: string;
+}): string {
+  const index = input.memoryIndex?.trim() || "无";
+  return `当前状态：${JSON.stringify(publicState(input.state))}\n记忆索引：\n${index}\n教练这句话：${input.utterance}`;
 }
 
 function publicState(state: ParentState): unknown {

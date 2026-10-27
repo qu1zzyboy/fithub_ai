@@ -55,6 +55,7 @@ export interface FrameworkTask {
     chronicNote?: string;
   };
   assessmentInLibrary: true;
+  memorySummary?: string;
 }
 
 export interface MovementParams {

@@ -29,8 +29,14 @@ export type Decision =
       proposeChange?: boolean;
     };
 
+type WithReply<T> = T & { reply?: string };
+
+export type CoachDecision = WithReply<Decision>;
+
 export interface ParentPorts {
-  classify(input: { utterance: string; state: ParentState }): Promise<Decision>;
+  classify(input: { utterance: string; state: ParentState; memoryIndex: string }): Promise<CoachDecision>;
+  loadMemory(input: { coachId: string; athleteId: string | null }): Promise<string>;
+  remember(input: { utterance: string; reply: string; coachId: string; athleteId: string | null }): Promise<void>;
   resolveAthlete(name: string): Promise<AthleteBinding | null>;
   checkPermission(coachId: string, athleteId: string): Promise<boolean>;
   readInjuryTags(athleteId: string): Promise<{ joints: string[]; chronicConditions: string[] }>;

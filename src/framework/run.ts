@@ -21,6 +21,7 @@ export interface FrameworkContext {
   templates: PlanTemplate[];
   periodPlans: PeriodPlan[];
   movements: MovementRecord[];
+  memorySummary?: string;
 }
 
 export interface ProposedSlot {
@@ -73,6 +74,7 @@ export async function runFrameworkAgent(
     templates,
     periodPlans,
     movements,
+    memorySummary: task.memorySummary,
   };
   const proposal = await propose(structuredClone(context));
   const slots = proposal.slots.map((slot) => acceptSlot(slot, movements, task.injuries));
