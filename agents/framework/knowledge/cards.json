@@ -1,0 +1,146 @@
+[
+  {
+    "id": "share.primary",
+    "stations": ["demand-set"],
+    "rule": "主模块占本周剂量的 60–70%，其余是功能性维持和调味。只定占比，不排课次。",
+    "source": "体育部门主线 ①"
+  },
+  {
+    "id": "phase.span",
+    "stations": ["demand-set"],
+    "rule": "阶段长度只表示这段打算覆盖多少训练机会，不表示某一日历周必须上完。",
+    "source": "体育部门主线 · 周是预算"
+  },
+  {
+    "id": "cscs.freq.beginner.general",
+    "stations": ["demand-set"],
+    "when": { "experience": ["beginner"], "population": ["general"] },
+    "rule": "一般人群、初学，每周 2–3 次。案卷里的频率已经确认，用来对照，不要另起一套次数。",
+    "source": "NSCA-CSCS 步骤2"
+  },
+  {
+    "id": "cscs.freq.intermediate.general",
+    "stations": ["demand-set"],
+    "when": { "experience": ["intermediate"], "population": ["general"] },
+    "rule": "一般人群、中级，每周 3–4 次。案卷里的频率已经确认，用来对照，不要另起一套次数。",
+    "source": "NSCA-CSCS 步骤2"
+  },
+  {
+    "id": "cscs.freq.advanced.general",
+    "stations": ["demand-set"],
+    "when": { "experience": ["advanced"], "population": ["general"] },
+    "rule": "一般人群、高级，每周 4–7 次。案卷里的频率已经确认，用来对照，不要另起一套次数。",
+    "source": "NSCA-CSCS 步骤2"
+  },
+  {
+    "id": "cscs.freq.athlete",
+    "stations": ["demand-set"],
+    "when": { "population": ["athlete"] },
+    "rule": "竞技运动员的每周次数随赛季下降。没有赛季信息时，沿用案卷里已经确认的频率。",
+    "source": "NSCA-CSCS 步骤2"
+  },
+  {
+    "id": "cscs.periodization.beginner",
+    "stations": ["demand-set"],
+    "when": { "experience": ["beginner"] },
+    "rule": "初学用线性安排。",
+    "source": "NSCA-CSCS 周期化模型"
+  },
+  {
+    "id": "cscs.periodization.intermediate",
+    "stations": ["demand-set"],
+    "when": { "experience": ["intermediate"] },
+    "rule": "中级、每周次数已经固定时，用线性安排。",
+    "source": "NSCA-CSCS 周期化模型"
+  },
+  {
+    "id": "cscs.periodization.advanced",
+    "stations": ["demand-set"],
+    "when": { "experience": ["advanced"] },
+    "rule": "高级用波动安排。",
+    "source": "NSCA-CSCS 周期化模型"
+  },
+  {
+    "id": "demand.no-name",
+    "stations": ["demand-items"],
+    "rule": "用运动模式和原因写条目。不写动作名。",
+    "source": "体育部门主线 ②"
+  },
+  {
+    "id": "demand.stated-patterns",
+    "stations": ["demand-items"],
+    "rule": "策略里已经写明的动作模式都要落到条目上。没写明时，只写主模块需要的模式。",
+    "source": "NSCA-CSCS SAID"
+  },
+  {
+    "id": "diagnosis.dimension",
+    "stations": ["diagnosis"],
+    "rule": "伤病写成维度约束，不写成可以做或不能做的动作名。",
+    "source": "体育部门主线 ③"
+  },
+  {
+    "id": "diagnosis.assessment",
+    "stations": ["diagnosis"],
+    "rule": "进阶断点只来自评估摘要里已经写明的内容。摘要没有断点就留空。",
+    "source": "体育部门主线 ③"
+  },
+  {
+    "id": "diagnosis.beginner",
+    "stations": ["diagnosis"],
+    "when": { "experience": ["beginner"] },
+    "rule": "初学先掌握动作模式，再引入结构性负重。断点写方向，不写第几周。",
+    "source": "NSCA-CSCS 步骤3"
+  },
+  {
+    "id": "slots.order",
+    "stations": ["slots"],
+    "rule": "同一课里，爆发力模式在前，多关节核心其次，辅助在后。",
+    "source": "NSCA-CSCS 步骤4"
+  },
+  {
+    "id": "slots.count.beginner",
+    "stations": ["slots"],
+    "when": { "experience": ["beginner"] },
+    "rule": "初学每课 4–6 个动作。用案卷里的 movementsPerSession，不要超出。",
+    "source": "NSCA-CSCS 步骤3"
+  },
+  {
+    "id": "slots.count.intermediate",
+    "stations": ["slots"],
+    "when": { "experience": ["intermediate"] },
+    "rule": "中级每课 6–8 个动作。用案卷里的 movementsPerSession，不要超出。",
+    "source": "NSCA-CSCS 步骤3"
+  },
+  {
+    "id": "slots.count.advanced",
+    "stations": ["slots"],
+    "when": { "experience": ["advanced"] },
+    "rule": "高级每课 6–10 个动作。用案卷里的 movementsPerSession，不要超出。",
+    "source": "NSCA-CSCS 步骤3"
+  },
+  {
+    "id": "slots.capacity",
+    "stations": ["slots"],
+    "rule": "session 数不超过案卷里的 frequency。超出则返回 demand-set，reasonTag 用「恢复不足」。",
+    "source": "体育部门主线 ④"
+  },
+  {
+    "id": "slots.candidates",
+    "stations": ["slots"],
+    "rule": "movementId 只能用候选里的 id。没有合适的就不填，并写 unfilledReason。",
+    "source": "动作库"
+  },
+  {
+    "id": "slots.no-load",
+    "stations": ["slots"],
+    "rule": "不写组数、次数、负荷、休息、格位、方案和进阶步。",
+    "source": "体育部门主线 ④"
+  },
+  {
+    "id": "slots.beginner.regression",
+    "stations": ["slots"],
+    "when": { "experience": ["beginner"] },
+    "rule": "初学优先选退阶动作，不选高技术的结构性负重。",
+    "source": "NSCA-CSCS 步骤3"
+  }
+]

@@ -5,7 +5,13 @@ export interface ParentReads {
   checkPermission(coachId: string, athleteId: string): Promise<boolean>;
   readInjuryTags(athleteId: string): Promise<{ joints: string[]; chronicConditions: string[] }>;
   assessmentExists(athleteId: string): Promise<boolean>;
-  callBusinessApi(input: { coachId: string; athleteId: string | null; utterance: string }): Promise<string>;
+  callBusinessApi(input: {
+    coachId: string;
+    athleteId: string | null;
+    athleteName: string | null;
+    utterance: string;
+    capability?: string;
+  }): Promise<string>;
 }
 
 export interface ConfirmedStrategy {

@@ -1,0 +1,65 @@
+[
+  {
+    "module": "m1",
+    "fitness": ["纠正代偿", "动作别扭", "姿势不对", "体态", "活动度不够"],
+    "performance": ["动作模式", "技术动作变形", "代偿"],
+    "occupational": ["防劳损", "动作规范", "岗位动作变形"],
+    "generic": ["纠正动作", "练基础动作"]
+  },
+  {
+    "module": "m2",
+    "fitness": ["协调", "控制不住", "稳定性", "核心不稳"],
+    "performance": ["动作控制", "稳定"],
+    "occupational": ["控制力", "稳定支撑"],
+    "generic": ["协调性", "稳定性"]
+  },
+  {
+    "module": "m3",
+    "fitness": ["增肌", "力量", "卧推", "深蹲", "硬拉", "变壮", "扛得住"],
+    "performance": ["最大力量", "力量基础", "底盘力量"],
+    "occupational": ["负重", "力量考核", "力量底线"],
+    "generic": ["练力量", "变强"]
+  },
+  {
+    "module": "m4",
+    "fitness": ["爆发", "速度", "弹跳", "跳得更高", "更快"],
+    "performance": ["爆发力", "起动", "加速", "功率", "VBT"],
+    "occupational": ["爆发", "快速发力"],
+    "generic": ["爆发力", "速度力量"]
+  },
+  {
+    "module": "m5",
+    "fitness": ["减脂", "有氧", "喘气", "耐力", "代谢"],
+    "performance": ["有氧基础", "代谢", "体能储备"],
+    "occupational": ["有氧", "体能维持"],
+    "generic": ["减脂", "有氧"]
+  },
+  {
+    "module": "m6",
+    "fitness": ["冲刺", "跑跳"],
+    "performance": ["冲刺", "变向", "弹速", "跳跃"],
+    "occupational": ["冲刺考核", "跑跳任务"],
+    "generic": ["冲刺", "跳跃"]
+  },
+  {
+    "module": "m7",
+    "fitness": [],
+    "performance": ["反复冲刺", "对抗续航", "间歇"],
+    "occupational": ["任务间歇", "反复输出"],
+    "generic": ["间歇能力"]
+  },
+  {
+    "module": "m8",
+    "fitness": ["习惯", "保持", "忙季"],
+    "performance": ["维持", "不掉线"],
+    "occupational": ["常年保持", "微剂量"],
+    "generic": ["维持训练"]
+  },
+  {
+    "module": "m9",
+    "fitness": ["调味", "换着练", "怕枯燥"],
+    "performance": ["专项迁移", "赛季穿插"],
+    "occupational": ["任务模拟穿插"],
+    "generic": ["换花样"]
+  }
+]

@@ -16,7 +16,7 @@ export type Decision =
   | { intent: "unclear" }
   | { intent: "session" }
   | { intent: "premature-write" }
-  | { intent: "api"; needsAthlete: boolean }
+  | { intent: "api"; needsAthlete: boolean; athleteName?: string; capability?: string }
   | { intent: "confirm" }
   | { intent: "revise" }
   | { intent: "framework"; athleteName?: string; strategy?: Partial<StrategyDraft> }
@@ -41,7 +41,13 @@ export interface ParentPorts {
   checkPermission(coachId: string, athleteId: string): Promise<boolean>;
   readInjuryTags(athleteId: string): Promise<{ joints: string[]; chronicConditions: string[] }>;
   assessmentExists(athleteId: string): Promise<boolean>;
-  callBusinessApi(input: { coachId: string; athleteId: string | null; utterance: string }): Promise<string>;
+  callBusinessApi(input: {
+    coachId: string;
+    athleteId: string | null;
+    athleteName: string | null;
+    utterance: string;
+    capability?: string;
+  }): Promise<string>;
   mergeTags(athleteId: string, tags: TagMerge): Promise<void>;
   saveFramework(athleteId: string, framework: FrameworkResult): Promise<void>;
   savePlanChange(athleteId: string, change: PlanChange): Promise<void>;

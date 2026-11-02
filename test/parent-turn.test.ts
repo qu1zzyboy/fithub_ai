@@ -116,6 +116,43 @@ test("说不清时追问，不拉起子 agent", async () => {
   assert.equal(fake.calls.includes("runReview"), false);
 });
 
+test("强制决策跳过分类，直接进排课门禁", async () => {
+  const fake = ports({ intent: "unclear" });
+  const result = await runParentTurn(
+    initialParentState("c1"),
+    "给张三排力量课",
+    fake.ports,
+    { decision: { intent: "framework", athleteName: "张三", strategy: { trainingType: "力量" } } },
+  );
+  assert.equal(fake.calls.includes("classify"), false);
+  assert.equal(fake.calls.includes("loadMemory"), false);
+  assert.equal(result.reply.includes("关节问题"), true);
+  assert.equal(fake.calls.includes("injuries"), true);
+  assert.equal(fake.calls.includes("runFramework"), false);
+});
+
+test("强制复盘决策缺 range 时追问，仍不分类", async () => {
+  const fake = ports({ intent: "unclear" });
+  const result = await runParentTurn(
+    { ...initialParentState("c1"), athlete: { id: "a1", name: "张三" } },
+    "看看最近练得怎么样",
+    fake.ports,
+    { decision: { intent: "review", athleteName: "张三" } },
+  );
+  assert.equal(fake.calls.includes("classify"), false);
+  assert.equal(result.reply.includes("哪一次"), true);
+  assert.equal(result.state.activeGate, "review");
+  assert.equal(fake.calls.includes("runReview"), false);
+});
+
+test("门禁进行中 unclear 不再问排课还是复盘", async () => {
+  const state = { ...initialParentState("c1"), activeGate: "framework" as const, athlete: { id: "a1", name: "张三" } };
+  const fake = ports({ intent: "unclear" });
+  const result = await runParentTurn(state, "嗯", fake.ports);
+  assert.equal(result.reply.includes("排课信息"), true);
+  assert.equal(result.reply.includes("排课还是"), false);
+});
+
 test("一般运动问题只走接口", async () => {
   const state = { ...initialParentState("c1"), athlete: { id: "a1", name: "张三" } };
   const fake = ports({ intent: "api", needsAthlete: true });

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "list_my_athletes",
+    "needsAthlete": false,
+    "description": "列出当前教练名下、当前客户可见的学员。问名下有谁、有哪些学员时用。",
+    "args": []
+  },
+  {
+    "id": "get_athlete_tags",
+    "needsAthlete": true,
+    "description": "读取已绑定学员的档案标签：训练目标、经验、关节问题、慢性病。",
+    "args": []
+  },
+  {
+    "id": "check_assessment",
+    "needsAthlete": true,
+    "description": "查这名学员评估是否在库。",
+    "args": []
+  },
+  {
+    "id": "list_period_plans",
+    "needsAthlete": false,
+    "description": "列出当前客户可见的周期计划名称。",
+    "args": []
+  },
+  {
+    "id": "none",
+    "needsAthlete": false,
+    "description": "不是查业务库。例如动作怎么做、训练规则说明。循环会用你的 reply。",
+    "args": []
+  }
+]

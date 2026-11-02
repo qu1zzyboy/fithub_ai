@@ -2,6 +2,8 @@ memory/coaches/*
 !memory/coaches/.gitkeep
 memory/athletes/*
 !memory/athletes/.gitkeep
+memory/conversations/*
+!memory/conversations/.gitkeep
 memory/system/candidates/*
 !memory/system/candidates/.gitkeep
 jobs/**

@@ -138,6 +138,7 @@ test("对话有结论才写入这位教练的目录", async () => {
   const root = mkdtempSync(join(tmpdir(), "fithub-memory-"));
   let proposals = 0;
   const service = createChatService({
+    skipReact: true,
     memoryRoot: root,
     today: () => TODAY,
     async classify() {
@@ -157,6 +158,7 @@ test("对话有结论才写入这位教练的目录", async () => {
   assert.equal(readMemoryIndex(root, { coachId: "c-mem", athleteId: null }, TODAY).includes("短回复"), true);
 
   const asking = createChatService({
+    skipReact: true,
     memoryRoot: root,
     today: () => TODAY,
     async classify() {

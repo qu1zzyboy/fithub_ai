@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { catalogForPrompt, normalizeCapability } from "../business/catalog.ts";
 import type { CoachDecision } from "./ports.ts";
 import type { ParentState } from "./state.ts";
 
@@ -50,11 +51,26 @@ export function parseDecision(text: string): CoachDecision {
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) return { intent: "unclear" };
   try {
-    const parsed = JSON.parse(text.slice(start, end + 1)) as { intent?: string; reply?: unknown };
+    const parsed = JSON.parse(text.slice(start, end + 1)) as {
+      intent?: string;
+      reply?: unknown;
+      capability?: unknown;
+      needsAthlete?: unknown;
+      athleteName?: unknown;
+    };
     if (!parsed.intent) return { intent: "unclear" };
     const decision = parsed as CoachDecision;
     if (typeof parsed.reply === "string") decision.reply = parsed.reply.trim();
     else delete decision.reply;
+    if (decision.intent === "api") {
+      decision.capability = normalizeCapability(parsed.capability);
+      decision.needsAthlete = parsed.needsAthlete === true;
+      if (typeof parsed.athleteName === "string" && parsed.athleteName.trim()) {
+        decision.athleteName = parsed.athleteName.trim();
+      } else {
+        delete decision.athleteName;
+      }
+    }
     return decision;
   } catch {
     return { intent: "unclear" };
@@ -77,7 +93,13 @@ export function classifyUserText(input: {
   memoryIndex?: string;
 }): string {
   const index = input.memoryIndex?.trim() || "无";
-  return `当前状态：${JSON.stringify(publicState(input.state))}\n记忆索引：\n${index}\n教练这句话：${input.utterance}`;
+  return [
+    `当前状态：${JSON.stringify(publicState(input.state))}`,
+    `最近对话：\n${recentDialogue(input.state)}`,
+    `记忆索引：\n${index}`,
+    `只读能力：\n${catalogForPrompt()}`,
+    `教练这句话：${input.utterance}`,
+  ].join("\n");
 }
 
 function publicState(state: ParentState): unknown {
@@ -85,7 +107,16 @@ function publicState(state: ParentState): unknown {
     athleteName: state.athlete?.name ?? null,
     injuryConfirmed: state.strategy?.injuryConfirmed ?? false,
     pending: state.pending?.kind ?? null,
+    activeGate: state.activeGate,
   };
+}
+
+function recentDialogue(state: ParentState): string {
+  const lines = state.messages
+    .filter((item) => item.role === "user" || item.role === "assistant")
+    .slice(-6)
+    .map((item) => `${item.role === "user" ? "教练" : "助手"}：${item.content}`);
+  return lines.length > 0 ? lines.join("\n") : "无";
 }
 
 function messagesUrl(baseUrl: string): string {

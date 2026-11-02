@@ -1,4 +1,5 @@
-import { runFrameworkAgent, type FrameworkContext, type FrameworkProposal } from "../framework/run.ts";
+import { runFrameworkAgent } from "../framework/run.ts";
+import type { StationCall } from "../framework/prompt/types.ts";
 import { rememberTurn } from "../memory/remember.ts";
 import { defaultMemoryRoot, readMemoryIndex, todayIso, type MemoryCandidate } from "../memory/store.ts";
 import { runReviewAgent, type ReviewDraft, type ReviewFacts } from "../review/run.ts";
@@ -11,7 +12,7 @@ export function assembleParentPorts(input: {
   tools: ParentTools;
   framework: FrameworkReads;
   review: ReviewReads;
-  proposeFramework: (context: FrameworkContext) => Promise<FrameworkProposal>;
+  answerStation: (call: StationCall) => Promise<unknown>;
   composeReview: (facts: ReviewFacts) => Promise<ReviewDraft>;
   memoryRoot?: string;
   proposeMemories?: (context: {
@@ -42,7 +43,7 @@ export function assembleParentPorts(input: {
     mergeTags: parent.mergeTags,
     saveFramework: parent.saveFramework,
     savePlanChange: parent.savePlanChange,
-    runFramework: (task) => runFrameworkAgent(task, framework, input.proposeFramework),
+    runFramework: (task) => runFrameworkAgent(task, framework, { answer: input.answerStation }),
     runReview: (task) => runReviewAgent(task, review, input.composeReview),
   };
 }

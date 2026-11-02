@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runFrameworkAgent } from "../src/framework/run.ts";
+import type { StationCall } from "../src/framework/prompt/types.ts";
 import { assembleParentPorts } from "../src/parent/assemble.ts";
 import type { Decision } from "../src/parent/ports.ts";
 import { initialParentState, type FrameworkTask } from "../src/parent/state.ts";
@@ -28,6 +29,38 @@ const REVIEW_KEYS = [
   "readStrengthReserve",
   "readTrainingRecords",
 ];
+
+function stageAnswer(call: StationCall, slots: { slotId: string; pattern: string; movementId?: string }[]) {
+  if (call.repair) throw new Error("不应返工");
+  if (call.station === "demand-set") {
+    return {
+      status: "ok",
+      appliedRuleIds: call.cardIds,
+      phase: "basic_strength",
+      periodization: "linear",
+      items: [
+        { id: "d1", role: "primary", module: "力量", share: 65 },
+        { id: "d2", role: "maintain", module: "维持", share: 35 },
+      ],
+    };
+  }
+  if (call.station === "demand-items") {
+    return {
+      status: "ok",
+      appliedRuleIds: call.cardIds,
+      items: [{ id: "d1", pattern: "蹲", reason: "下肢力量" }],
+    };
+  }
+  if (call.station === "diagnosis") {
+    return {
+      status: "ok",
+      appliedRuleIds: call.cardIds,
+      constraints: [{ joint: "膝", dimension: "减小膝前负荷" }],
+      breakpoints: [],
+    };
+  }
+  return { status: "ok", appliedRuleIds: call.cardIds, sessions: 3, slots };
+}
 
 function movement(id: string, blocks: string[]): MovementRecord {
   return { id, name: id, patterns: [], equipment: ["杠铃"], contraindications: blocks };
@@ -148,7 +181,10 @@ test("框架子 agent 拿到写工具时直接停下", async () => {
     return null;
   };
   Object.assign(tools, { saveFramework: async () => {} });
-  await assert.rejects(() => runFrameworkAgent(task(), tools, async () => ({ slots: [] })), /不能拿写工具/);
+  await assert.rejects(
+    () => runFrameworkAgent(task(), tools, { answer: async () => { throw new Error("不应调用"); } }),
+    /不能拿写工具/,
+  );
   assert.equal(read, false);
 });
 
@@ -160,29 +196,35 @@ test("评估不在库时不读动作库，也不提议", async () => {
     movements += 1;
     return [];
   };
-  const result = await runFrameworkAgent(task(), tools, async () => {
-    throw new Error("不应提议");
+  const result = await runFrameworkAgent(task(), tools, {
+    answer: async () => {
+      throw new Error("不应提议");
+    },
   });
   assert.equal(result.summary, "评估不在库，不能排课。");
   assert.equal(movements, 0);
 });
 
 test("禁忌规则盖过工具返回的允许，库外动作填不进去", async () => {
-  let sawUtterance = false;
-  const result = await runFrameworkAgent(task(), frameworkReads(), async (context) => {
-    sawUtterance = "utterance" in context || JSON.stringify(context).includes("秘密原话");
-    return {
-      slots: [
+  let slotsUser = "";
+  const result = await runFrameworkAgent(task(), frameworkReads(), {
+    answer: async (call) => {
+      if (call.station === "slots") slotsUser = call.user;
+      return stageAnswer(call, [
         { slotId: "s1", pattern: "蹲", movementId: "squat" },
-        { slotId: "s2", pattern: "推", movementId: "bench", params: { sets: 3, reps: "5" } },
+        { slotId: "s2", pattern: "推", movementId: "bench" },
         { slotId: "s3", pattern: "拉", movementId: "ghost" },
-      ],
-    };
+      ]);
+    },
   });
-  assert.equal(sawUtterance, false);
+  assert.equal(slotsUser.includes("秘密原话"), false);
+  assert.equal(slotsUser.includes("utterance"), false);
+  assert.equal(slotsUser.includes('"squat"'), false);
+  assert.equal(slotsUser.includes('"bench"'), true);
   assert.equal(result.slots?.[0]?.movementId, undefined);
   assert.equal(result.slots?.[0]?.unfilledReason, "禁忌：膝");
   assert.equal(result.slots?.[1]?.movementId, "bench");
+  assert.equal(result.slots?.[1]?.params, undefined);
   assert.equal(result.slots?.[2]?.unfilledReason, "不在动作库");
 });
 
@@ -271,8 +313,8 @@ test("确认之前主循环不写框架，确认后写入的是过滤过的 Slot
     tools: bundle,
     framework: frameworkReads(),
     review: reviewReads(),
-    async proposeFramework() {
-      return { slots: [{ slotId: "s1", pattern: "蹲", movementId: "squat" }] };
+    answerStation(call) {
+      return Promise.resolve(stageAnswer(call, [{ slotId: "s1", pattern: "蹲", movementId: "squat" }]));
     },
     async composeReview() {
       return { summary: "无", change: null };

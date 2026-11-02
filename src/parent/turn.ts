@@ -1,5 +1,7 @@
+import { loadCapabilities, normalizeCapability } from "../business/catalog.ts";
 import type { CoachDecision, ParentPorts } from "./ports.ts";
 import {
+  appendChat,
   isExperienceLevel,
   type FrameworkTask,
   type ParentState,
@@ -13,6 +15,11 @@ export interface TurnResult {
   reply: string;
 }
 
+export interface ParentTurnOptions {
+  /** ReAct dispatch 已定意图时跳过分类，直接走门禁。 */
+  decision?: CoachDecision;
+}
+
 /**
  * 主 agent 的一轮。
  * 分类、读写和子 agent 都从 ports 进来。写库只发生在策略确认和教练确认之后。
@@ -22,23 +29,29 @@ export async function runParentTurn(
   state: ParentState,
   utterance: string,
   ports: ParentPorts,
+  options: ParentTurnOptions = {},
 ): Promise<TurnResult> {
-  const memoryIndex = await ports.loadMemory({ coachId: state.coachId, athleteId: state.athlete?.id ?? null });
-  const decision = await ports.classify({ utterance, state, memoryIndex });
+  const decision = options.decision ?? await classifyTurn(state, utterance, ports);
   let next = cloneState(state);
 
   if (decision.intent === "unrelated") return finish(next, spoken(decision, "这件我做不了。"), ports, utterance, true);
   if (decision.intent === "session") return finish(next, spoken(decision, "发这一次课还不在这一版里。"), ports, utterance, true);
   if (decision.intent === "premature-write") return finish(next, spoken(decision, "还没确认，不能写入。"), ports, utterance, true);
-  if (decision.intent === "unclear") return finish(next, spoken(decision, "你是要往下排课，还是看已经练过的？"), ports, utterance, false);
+  if (decision.intent === "unclear") return finish(next, spoken(decision, unclearPrompt(next)), ports, utterance, false);
   if (decision.intent === "confirm") return confirmPending(next, ports, utterance);
   if (decision.intent === "revise") {
     next.pending = null;
     return finish(next, "还没写入。直接说要改的地方，我再排一次。", ports, utterance, true);
   }
 
+  if (decision.intent === "framework" || decision.intent === "review") {
+    next.activeGate = decision.intent;
+  }
+
   const athleteName = "athleteName" in decision ? decision.athleteName : undefined;
-  const needsAthlete = decision.intent !== "api" || decision.needsAthlete;
+  const capability = decision.intent === "api" ? normalizeCapability(decision.capability) : undefined;
+  const needsAthlete = decision.intent !== "api"
+    || capabilityNeedsAthlete(capability!, decision.needsAthlete);
   if (needsAthlete) {
     const bound = await bindAthlete(next, athleteName, ports);
     if (bound.stop) return finish(bound.state, bound.stop, ports, utterance, false);
@@ -49,7 +62,9 @@ export async function runParentTurn(
     const text = (await ports.callBusinessApi({
       coachId: next.coachId,
       athleteId: next.athlete?.id ?? null,
+      athleteName: next.athlete?.name ?? null,
       utterance,
+      capability,
     })).trim();
     return finish(next, text || spoken(decision, "这个问题还没有接到对应的业务接口。"), ports, utterance, true);
   }
@@ -84,7 +99,10 @@ export async function runParentTurn(
   if (gaps.length > 0) return finish(next, `排课还缺：${gaps.join("、")}。`, ports, utterance, false);
 
   const assessmentInLibrary = await ports.assessmentExists(next.athlete!.id);
-  if (!assessmentInLibrary) return finish(next, "评估不在库，不能排课。", ports, utterance, true);
+  if (!assessmentInLibrary) {
+    next.activeGate = null;
+    return finish(next, "评估不在库，不能排课。", ports, utterance, true);
+  }
 
   const task = toFrameworkTask(next, await taskMemory(next, ports));
   await ports.mergeTags(next.athlete!.id, toTagMerge(next.strategy));
@@ -93,18 +111,37 @@ export async function runParentTurn(
   return finish(next, result.summary, ports, utterance, true);
 }
 
+async function classifyTurn(
+  state: ParentState,
+  utterance: string,
+  ports: ParentPorts,
+): Promise<CoachDecision> {
+  const memoryIndex = await ports.loadMemory({ coachId: state.coachId, athleteId: state.athlete?.id ?? null });
+  return ports.classify({ utterance, state, memoryIndex });
+}
+
 async function confirmPending(state: ParentState, ports: ParentPorts, utterance: string): Promise<TurnResult> {
   const pending = state.pending;
   if (!pending || !state.athlete) return finish(state, "现在没有待确认的内容。", ports, utterance, false);
   if (pending.kind === "framework") {
     await ports.saveFramework(state.athlete.id, pending.result);
-    return finish({ ...state, pending: null }, "框架已写入。", ports, utterance, true);
+    return finish({ ...state, pending: null, activeGate: null }, "框架已写入。", ports, utterance, true);
   }
   if (pending.result.change) {
     await ports.savePlanChange(state.athlete.id, pending.result.change);
-    return finish({ ...state, pending: null }, "计划和参数已写入。", ports, utterance, true);
+    return finish({ ...state, pending: null, activeGate: null }, "计划和参数已写入。", ports, utterance, true);
   }
-  return finish({ ...state, pending: null }, "这次只作查看，没有要写入的改法。", ports, utterance, true);
+  return finish({ ...state, pending: null, activeGate: null }, "这次只作查看，没有要写入的改法。", ports, utterance, true);
+}
+
+function unclearPrompt(state: ParentState): string {
+  if (state.activeGate === "framework" || state.strategy) {
+    return "接着补充排课信息，或者说要改哪里。";
+  }
+  if (state.activeGate === "review") {
+    return "要看哪一段时间？还是要报告或改法？";
+  }
+  return "你是要往下排课，还是看已经练过的？";
 }
 
 async function taskMemory(state: ParentState, ports: ParentPorts): Promise<string | undefined> {
@@ -194,6 +231,11 @@ function toTagMerge(strategy: StrategyDraft): TagMerge {
   };
 }
 
+function capabilityNeedsAthlete(capability: string, fallback: boolean): boolean {
+  const row = loadCapabilities().find((item) => item.id === capability);
+  return row ? row.needsAthlete : fallback;
+}
+
 function spoken(decision: CoachDecision, fallback: string): string {
   const reply = decision.reply?.trim();
   return reply || fallback;
@@ -210,17 +252,21 @@ async function finish(
   utterance: string,
   concluded: boolean,
 ): Promise<TurnResult> {
+  let next = state;
+  const recentUser = [...state.messages].reverse().find((item) => item.role === "user");
+  if (recentUser?.content !== utterance) next = appendChat(next, { role: "user", content: utterance });
+  next = appendChat(next, { role: "assistant", content: reply });
   if (concluded) {
     try {
       await ports.remember({
         utterance,
         reply,
-        coachId: state.coachId,
-        athleteId: state.athlete?.id ?? null,
+        coachId: next.coachId,
+        athleteId: next.athlete?.id ?? null,
       });
     } catch {
       // 记忆写失败时，这一轮已经给教练的回复仍然返回。
     }
   }
-  return { state, reply };
+  return { state: next, reply };
 }
