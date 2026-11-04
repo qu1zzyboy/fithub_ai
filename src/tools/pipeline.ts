@@ -212,12 +212,48 @@ export function createPipelineTools(business: BusinessClient): RegisteredTool[] 
         return [
           `周安排（${accept ? "已确认" : "草案"}）：${summarizeH3(h3)}`,
           accept
-            ? "模块级周安排已确认。具体动作与负荷后续再细化。"
-            : "这版周安排可以的话告诉我；具体动作与负荷后续再细化。",
+            ? "模块级周安排已确认。具体动作与负荷后续再细化。这还不是业务课表。"
+            : "这版周安排可以的话告诉我；具体动作与负荷后续再细化。这还不是业务课表。",
         ].join("\n");
       },
     },
+    {
+      name: "read_training_pipeline",
+      description:
+        "读取这位学员正在进行的训练规划：目标方向、安全定位、模块级周安排。教练问落库内容、周安排定稿、给我看保存了什么时用。不要用 list_period_plans 代替。",
+      inputSchema: {
+        type: "object",
+        properties: {
+          athleteName: { type: "string", description: "学员名称。会话未绑定时必填。" },
+        },
+      },
+      async execute(input, ctx) {
+        const bound = await ensureAthlete(input, ctx);
+        if ("error" in bound) return bound.error;
+        return describeActivePipeline(business, ctx.token, bound.id);
+      },
+    },
   ];
+}
+
+/** 给 ReAct 的规划摘要。没有进行中的规划时返回说明，不抛错。 */
+export async function describeActivePipeline(
+  business: BusinessClient,
+  token: string,
+  userId: string,
+): Promise<string> {
+  const run = await business.getPipelineRun({ token, userId, activeOnly: true }).catch(() => null);
+  if (!run) return "还没有进行中的规划。";
+  const rows = await business.listPipelineHandoffs({ token, runId: run.id }).catch(() => []);
+  const lines = ["目标方向", "安全定位", "周安排"].map((label, index) => {
+    const handoff = latestHandoff(rows, (["H1", "H2", "H3"] as const)[index]);
+    if (!handoff) return `${label}：还没有。`;
+    return `${label}（${handoff.status === "accepted" ? "已确认" : "草案"}）：${summarizeHandoff(handoff)}`;
+  });
+  return [
+    ...lines,
+    "以上是规划交接，不是业务课表，也不是周期计划模板。",
+  ].join("\n");
 }
 
 async function loadActiveRun(
@@ -249,6 +285,37 @@ async function ensureAccepted(
   }
   const result = await business.acceptPipelineHandoff({ token, runId: run.id, handoffId });
   return { run: result.run, handoff: result.handoff };
+}
+
+function latestHandoff(rows: readonly PipelineHandoff[], handoffId: string): PipelineHandoff | undefined {
+  return rows
+    .filter((item) => item.handoffId === handoffId)
+    .sort((a, b) => b.version - a.version)[0];
+}
+
+function summarizeHandoff(handoff: PipelineHandoff): string {
+  if (handoff.handoffId === "H1") {
+    const h1 = asH1(handoff.payload);
+    if (!h1) return "内容暂不可读。";
+    const secondary = h1.secondary_modules.length > 0 ? `；辅方向 ${h1.secondary_modules.join("、")}` : "";
+    return `${labelType(h1.user_type)}；主方向 ${h1.primary_module}${secondary}。`;
+  }
+  if (handoff.handoffId === "H2") {
+    const h2 = asH2(handoff.payload);
+    return h2 ? summarizeH2(h2) : "内容暂不可读。";
+  }
+  if (handoff.handoffId === "H3") {
+    const h3 = asH3(handoff.payload);
+    return h3 ? summarizeH3(h3) : "内容暂不可读。";
+  }
+  return "内容暂不可读。";
+}
+
+function asH3(payload: unknown): Parameters<typeof summarizeH3>[0] | null {
+  const row = payload && typeof payload === "object" ? payload as Record<string, unknown> : null;
+  if (!row || row.handoff_id !== "H3") return null;
+  if (!row.module_mix || !row.route || !Array.isArray(row.weekly_schedule)) return null;
+  return payload as Parameters<typeof summarizeH3>[0];
 }
 
 function asH1(payload: unknown): H1Payload | null {

@@ -37,7 +37,7 @@ export function clipToolResult(text: string, maxChars = TOOL_RESULT_MAX_CHARS): 
 export function formatWorkingState(state: ParentState): string {
   const parts = [
     state.athlete ? `当前学员：${state.athlete.name}` : "当前学员：未绑定",
-    state.activeGate ? `进行中门禁：${state.activeGate === "framework" ? "排课" : "复盘"}` : "",
+    state.activeGate ? `旧表单记号：${state.activeGate === "framework" ? "排课" : "复盘"}` : "",
     state.pending ? `待确认：${state.pending.kind === "framework" ? "框架草案" : "复盘改法"}` : "",
     state.strategy?.injuryConfirmed ? "伤病已确认" : state.strategy ? "伤病尚未确认完" : "",
   ].filter(Boolean);
@@ -47,11 +47,16 @@ export function formatWorkingState(state: ParentState): string {
 export function buildReactSystem(input: {
   policy: string;
   memoryIndex?: string;
+  pipelineSummary?: string;
   workingState: string;
   sessionSummary?: string | null;
 }): string {
   const blocks = [input.policy.trim()];
   blocks.push(`## 本轮工作态\n${input.workingState || "无"}`);
+  const pipeline = input.pipelineSummary?.trim();
+  if (pipeline) {
+    blocks.push(`## 这位学员进行中的规划\n${pipeline}\n（这是规划交接，不是业务课表。要看全文时再调读取工具。）`);
+  }
   const memory = input.memoryIndex?.trim();
   if (memory) blocks.push(`## 长期记忆索引\n${memory}\n（仅作参考；业务事实以工具/档案为准，不要编造索引里没有的内容。）`);
   const summary = input.sessionSummary?.trim();

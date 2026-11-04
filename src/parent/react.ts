@@ -18,7 +18,7 @@ import { appendChat, type ChatMessage, type ParentState } from "./state.ts";
 
 const POLICY = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../agents/parent/react.md"), "utf8");
 
-export const REACT_MAX_ROUNDS = 3;
+export const REACT_MAX_ROUNDS = 6;
 
 export type ReactResult =
   | { kind: "done"; state: ParentState; reply: string; concluded: boolean }
@@ -35,11 +35,13 @@ export interface ReactDeps {
   context: ToolContext;
   runModel?: typeof runModelTurn;
   loadMemory?: (input: { coachId: string; athleteId: string | null }) => Promise<string>;
+  loadPipeline?: () => Promise<string>;
   summarize?: (older: ChatMessage[]) => Promise<string>;
 }
 
 /**
- * 只读 ReAct 轨。遇到 dispatch_* 就带着决策交回旧主循环，不再二次分类。
+ * 对话主循环。每一句教练的话都进这里。
+ * 遇到 dispatch_* 只把这一轮交回旧主循环，下一句仍回到这里。
  */
 export async function runReactTurn(
   state: ParentState,
@@ -56,6 +58,7 @@ export async function runReactTurn(
   const memoryIndex = deps.loadMemory
     ? await deps.loadMemory({ coachId: next.coachId, athleteId: next.athlete?.id ?? null }).catch(() => "")
     : "";
+  const pipelineSummary = deps.loadPipeline ? await deps.loadPipeline().catch(() => "") : "";
 
   for (let round = 0; round < REACT_MAX_ROUNDS; round += 1) {
     ctx.athleteId = next.athlete?.id ?? null;
@@ -63,6 +66,7 @@ export async function runReactTurn(
     const system = buildReactSystem({
       policy: POLICY,
       memoryIndex,
+      pipelineSummary,
       workingState: formatWorkingState(next),
       sessionSummary: next.sessionSummary,
     });

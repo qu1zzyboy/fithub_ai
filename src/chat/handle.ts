@@ -14,10 +14,10 @@ import {
 } from "../parent/contextBudget.ts";
 import type { ParentPorts } from "../parent/ports.ts";
 import { runReactTurn } from "../parent/react.ts";
-import { initialParentState, needsGateContinuation, type ChatMessage, type ParentState } from "../parent/state.ts";
+import { initialParentState, type ChatMessage, type ParentState } from "../parent/state.ts";
 import { runParentTurn } from "../parent/turn.ts";
 import { createDispatchTools } from "../tools/dispatch.ts";
-import { createPipelineTools } from "../tools/pipeline.ts";
+import { createPipelineTools, describeActivePipeline } from "../tools/pipeline.ts";
 import { createReadonlyTools } from "../tools/readonly.ts";
 import { createRegistry } from "../tools/registry.ts";
 import type { BusinessClient } from "./business.ts";
@@ -158,12 +158,39 @@ export function createChatService(deps: {
 
           const summarize = deps.summarize ?? ((older: ChatMessage[]) => summarizeOlder(older, deps.runModel));
 
-          // 门禁续聊（伤病确认、补策略、confirm/revise）走分类器；新开只读查询才走 ReAct。
-          if (!deps.skipReact && !needsGateContinuation(state)) {
+          // 每一句都进 ReAct。只有待确认草案上的确认/改口走旧短路径。
+          if (!deps.skipReact) {
+            if (state.pending) {
+              const memoryIndex = await parentPorts.loadMemory({
+                coachId,
+                athleteId: state.athlete?.id ?? null,
+              });
+              const decision = await classify({ utterance, state, memoryIndex });
+              if (decision.intent === "confirm" || decision.intent === "revise") {
+                const decided = await runParentTurn(state, utterance, parentPorts, { decision });
+                return persistAndReply({
+                  sessions,
+                  store,
+                  token,
+                  key,
+                  session,
+                  state: decided.state,
+                  coachId,
+                  sessionId,
+                  reply: decided.reply,
+                  utterance,
+                });
+              }
+            }
             const react = await runReactTurn(state, utterance, {
               registry,
               runModel: deps.runModel,
               loadMemory: (query) => parentPorts.loadMemory(query),
+              loadPipeline: async () => {
+                const athleteId = state.athlete?.id;
+                if (!athleteId) return "";
+                return describeActivePipeline(business, token, athleteId);
+              },
               summarize,
               context: {
                 token,
